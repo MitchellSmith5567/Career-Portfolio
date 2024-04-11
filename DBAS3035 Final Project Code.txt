@@ -1,0 +1,203 @@
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- CREATE TABLE FOR CSV FILE DATA
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE TABLE vgr (
+Rank INT,
+Name VARCHAR(150),
+Platform VARCHAR(20),
+Year VARCHAR(4),
+Genre VARCHAR(50),
+Publisher VARCHAR(60),
+NA_Sales numeric,
+EU_Sales numeric,
+JP_Sales numeric,
+Other_Sales numeric,
+Global_Sales numeric
+);
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- QUERY TO IMPORT CSV FILE DATA INTO CSV FILE DATA TABLE
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+COPY vgr (Rank, Name, Platform, Year, Genre, Publisher, NA_Sales, EU_Sales, JP_Sales, Other_Sales, Global_Sales)
+FROM 'D:\DBA Year 2 Semester 2 Files\DBAS3035 Files\vgsales.csv' DELIMITER ',' CSV HEADER;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- CREATE TABLES FROM ENTITY RELATIONSHIP DIAGRAM
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE TABLE genres (
+	genre_id SERIAL PRIMARY KEY,
+	genre VARCHAR(50)
+);
+
+CREATE TABLE publishers (
+	publisher_id SERIAL PRIMARY KEY,
+	publisher VARCHAR(60)
+);
+
+CREATE TABLE games (
+	game_id SERIAL PRIMARY KEY,
+	game VARCHAR(150)
+);
+
+CREATE TABLE platforms (
+	platform_id SERIAL PRIMARY KEY,
+	platform VARCHAR(20)
+);
+
+CREATE TABLE rankings (
+	rank INT PRIMARY KEY,
+	fk_game_id INT REFERENCES games(game_id),
+	fk_platform_id INT REFERENCES platforms(platform_id),
+	fk_publisher_id INT REFERENCES publishers(publisher_id),
+	fk_genre_id INT REFERENCES genres(genre_id),
+	year VARCHAR(4),
+	na_sales numeric,
+	eu_sales numeric,
+	jp_sales numeric,
+	other_sales numeric
+);
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- IMPORT DATA FROM CSV TABLE INTO ERD TABLES
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+INSERT INTO genres (genre)
+SELECT DISTINCT genre
+FROM vgr;
+
+INSERT INTO publishers (publisher)
+SELECT DISTINCT publisher
+FROM vgr;
+
+INSERT INTO games (game)
+SELECT DISTINCT name
+FROM vgr;
+
+INSERT INTO platforms (platform)
+SELECT DISTINCT platform
+FROM vgr;
+
+INSERT INTO rankings (
+	rank,
+	fk_game_id,
+	fk_platform_id,
+	fk_publisher_id,
+	fk_genre_id,
+	year,
+	na_sales,
+	eu_sales,
+	jp_sales,
+	other_sales
+)
+SELECT DISTINCT 
+	vgr.rank,
+	ga.game_id,
+	pl.platform_id,
+	pu.publisher_id,
+	ge.genre_id,
+	vgr.year,
+	vgr.na_sales,
+	vgr.eu_sales,
+	vgr.jp_sales,
+	vgr.other_sales
+FROM games ga
+JOIN vgr ON ga.game = vgr.name
+JOIN platforms pl ON vgr.platform = pl.platform
+JOIN publishers pu ON vgr.publisher = pu.publisher
+JOIN genres ge ON vgr.genre = ge.genre;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- 'SELECT' STATEMENT INVOLVING TWO OR MORE TABLES (BEST SELLING SHOOTER GAMES IN 2010)
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+SELECT g.game, pr.publisher, r.year, p.platform, gr.genre, r.na_sales
+FROM Rankings r
+JOIN games g ON r.fk_game_id = g.game_id
+JOIN publishers pr ON r.fk_publisher_id = pr.publisher_id
+JOIN platforms p ON r.fk_platform_id = p.platform_id
+JOIN genres gr ON r.fk_genre_id = gr.genre_id
+WHERE r.year = '2010'
+AND gr.genre = 'Shooter'
+AND p.platform = 'X360'
+ORDER BY r.na_sales DESC;
+
+SELECT g.game, pr.publisher, r.year, p.platform, gr.genre, r.na_sales
+FROM Rankings r
+JOIN games g ON r.fk_game_id = g.game_id
+JOIN publishers pr ON r.fk_publisher_id = pr.publisher_id
+JOIN platforms p ON r.fk_platform_id = p.platform_id
+JOIN genres gr ON r.fk_genre_id = gr.genre_id
+WHERE r.year = '2010'
+AND gr.genre = 'Shooter'
+ORDER BY p.platform, r.na_sales DESC;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- QUERY USING A VIEW (TOP PLATFORMS BY YEAR)
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE VIEW Platform_Sales_Analysis AS
+SELECT DISTINCT ON (r.year) r.year, p.platform, SUM(r.na_sales + r.eu_sales + r.jp_sales + r.other_sales) AS Global_Sales
+FROM Rankings r
+JOIN platforms p ON r.fk_platform_id = p.platform_id
+WHERE r.year BETWEEN '2000' AND '2015'
+GROUP BY r.year, p.platform
+ORDER BY r.year, Global_Sales DESC;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- CTE QUERY (GENRE TRENDS)
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+WITH Genre_Trends AS (
+    SELECT DISTINCT ON (r.year) r.year, g.genre, SUM(r.na_sales + r.eu_sales + r.jp_sales + r.other_sales) AS Global_sales
+    FROM Rankings r
+    JOIN genres g ON r.fk_genre_id = g.genre_id
+    WHERE r.year BETWEEN '1980' AND '2015'
+    GROUP BY r.year, g.genre
+    ORDER BY r.year, Global_sales DESC
+)
+
+SELECT *
+FROM Genre_Trends;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- MATERIALIZED VIEW QUERY (BEST SELLING VIDEO GAMES OF ALL-TIME)
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE MATERIALIZED VIEW Best_Selling_Games AS
+SELECT g.game, gr.genre, p.platform, pr.publisher, SUM(r.na_sales + r.eu_sales + r.jp_sales + r.other_sales) AS Global_sales
+FROM Rankings r
+JOIN games g ON r.fk_game_id = g.game_id
+JOIN platforms p ON r.fk_platform_id = p.platform_id
+JOIN publishers pr ON r.fk_publisher_id = pr.publisher_id
+JOIN genres gr ON r.fk_genre_id = gr.genre_id
+GROUP BY g.game, gr.genre, p.platform, pr.publisher
+ORDER BY Global_sales DESC
+LIMIT 100;
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-- ADDITIONAL QUERY (TOP SELLING PUBLISHERS BY YEAR)
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+SELECT DISTINCT ON (r.year) r.year, p.publisher, SUM(r.na_sales + r.eu_sales + r.jp_sales + r.other_sales) AS Global_sales
+FROM Rankings r
+JOIN Games g ON r.fk_game_id = g.game_id
+JOIN Publishers p ON r.fk_publisher_id = p.publisher_id
+WHERE r.year BETWEEN '1980' AND '2015'
+GROUP BY r.year, p.publisher
+ORDER BY r.year, Global_sales DESC;
+
+
+
+
+
+
+
+
+
+
+
+
+

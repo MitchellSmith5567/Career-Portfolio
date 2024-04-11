@@ -1,0 +1,54 @@
+-------------------------------------------------------------------------------------------------
+-- QUERY #1 (SUB-QUERY)
+-------------------------------------------------------------------------------------------------
+
+SELECT DISTINCT c.first_name, c.last_name, f.title, f.rating, r.rental_date, f.rental_rate
+FROM customer c
+JOIN rental r ON c.customer_id = r.customer_id
+JOIN inventory i ON r.inventory_id = i.inventory_id
+JOIN film f ON i.film_id = f.film_id
+WHERE f.film_id IN (
+    SELECT f.film_id
+    FROM film f
+    WHERE f.rental_rate BETWEEN 2.99 AND 4.99
+    AND f.rating = 'R'
+)
+AND r.rental_date BETWEEN '2005-07-01' AND '2005-07-31'
+ORDER BY r.rental_date ASC;
+
+-------------------------------------------------------------------------------------------------
+-- QUERY #2 (CTE)
+-------------------------------------------------------------------------------------------------
+
+WITH Affordable_Rated_R_Movies AS (
+    SELECT DISTINCT c.first_name, c.last_name, f.title, f.rating, r.rental_date, f.rental_rate
+    FROM customer c
+    JOIN rental r ON c.customer_id = r.customer_id
+    JOIN inventory i ON r.inventory_id = i.inventory_id
+    JOIN film f ON i.film_id = f.film_id
+    WHERE f.film_id IN (
+        SELECT f.film_id
+        FROM film f
+        WHERE f.rental_rate BETWEEN 2.99 AND 4.99
+        AND f.rating = 'R'
+    )
+    AND r.rental_date BETWEEN '2005-07-01' AND '2005-07-31'
+)
+SELECT * FROM Affordable_Rated_R_Movies
+ORDER BY rental_date ASC;
+
+-------------------------------------------------------------------------------------------------
+-- Query #3 (Recursive CTE)
+-------------------------------------------------------------------------------------------------
+
+WITH RECURSIVE Employee_Manager AS (
+    SELECT ea.employee_id, ea.full_name, ea.manager_id
+    FROM employees ea
+    WHERE employee_id = 15
+    UNION ALL
+    SELECT eb.employee_id, eb.full_name, eb.manager_id
+    FROM employees eb
+    INNER JOIN Employee_Manager em ON eb.employee_id = em.manager_id
+)
+SELECT * FROM Employee_Manager;
+
